@@ -74,6 +74,18 @@ def test_unified_lines_empty_without_show_values():
     assert diffs[0].unified_lines == []
 
 
+def test_added_key_old_value_is_none():
+    """An added key should have no old value."""
+    diffs = build_value_diffs({}, {"NEW": "val"}, show_values=True)
+    assert diffs[0].old_value is None
+
+
+def test_removed_key_new_value_is_none():
+    """A removed key should have no new value."""
+    diffs = build_value_diffs({"OLD": "val"}, {}, show_values=True)
+    assert diffs[0].new_value is None
+
+
 # ---------------------------------------------------------------------------
 # summarise_value_diffs
 # ---------------------------------------------------------------------------
