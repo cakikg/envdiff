@@ -1,28 +1,22 @@
-"""Diff utilities for generating unified-style diffs between .env file values."""
-
+"""Low-level value diffing utilities used across envdiff commands."""
 from __future__ import annotations
 
-import difflib
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from dataclasses import dataclass
+from typing import Dict, Optional, Tuple
 
 
 @dataclass
 class ValueDiff:
     key: str
-    old_value: Optional[str]
-    new_value: Optional[str]
-    unified_lines: List[str] = field(default_factory=list)
+    old_value: Optional[str]  # None  => key was added
+    new_value: Optional[str]  # None  => key was removed
 
-    @property
     def is_added(self) -> bool:
         return self.old_value is None and self.new_value is not None
 
-    @property
     def is_removed(self) -> bool:
         return self.old_value is not None and self.new_value is None
 
-    @property
     def is_changed(self) -> bool:
         return (
             self.old_value is not None
@@ -31,57 +25,43 @@ class ValueDiff:
         )
 
 
-def _unified_value_diff(key: str, old: str, new: str) -> List[str]:
-    """Return unified diff lines for two values of the same key."""
-    old_lines = [f"{key}={old}\n"]
-    new_lines = [f"{key}={new}\n"]
-    return list(
-        difflib.unified_diff(
-            old_lines,
-            new_lines,
-            fromfile="before",
-            tofile="after",
-            lineterm="",
-        )
-    )
+def is_added(vd: ValueDiff) -> bool:
+    return vd.is_added()
 
 
-def build_value_diffs(
-    env_a: Dict[str, str],
-    env_b: Dict[str, str],
-    show_values: bool = False,
-) -> List[ValueDiff]:
-    """Compare two parsed env dicts and return a list of ValueDiff objects."""
-    all_keys = sorted(set(env_a) | set(env_b))
-    diffs: List[ValueDiff] = []
+def is_removed(vd: ValueDiff) -> bool:
+    return vd.is_removed()
 
-    for key in all_keys:
-        old_val = env_a.get(key)
-        new_val = env_b.get(key)
 
-        if old_val == new_val:
+def is_changed(vd: ValueDiff) -> bool:
+    return vd.is_changed()
+
+
+def _unified_value_diff(
+    old: Dict[str, str],
+    new: Dict[str, str],
+    *,
+    include_unchanged: bool = False,
+) -> Dict[str, ValueDiff]:
+    """Return a mapping of key -> ValueDiff for every key that differs."""
+    result: Dict[str, ValueDiff] = {}
+    all_keys = old.keys() | new.keys()
+    for key in sorted(all_keys):
+        ov = old.get(key)
+        nv = new.get(key)
+        if ov == nv and not include_unchanged:
             continue
-
-        unified: List[str] = []
-        if show_values and old_val is not None and new_val is not None:
-            unified = _unified_value_diff(key, old_val, new_val)
-
-        diffs.append(
-            ValueDiff(
-                key=key,
-                old_value=old_val if show_values else ("***" if old_val is not None else None),
-                new_value=new_val if show_values else ("***" if new_val is not None else None),
-                unified_lines=unified,
-            )
-        )
-
-    return diffs
+        result[key] = ValueDiff(key=key, old_value=ov, new_value=nv)
+    return result
 
 
-def summarise_value_diffs(diffs: List[ValueDiff]) -> Dict[str, int]:
-    """Return counts of added, removed, and changed keys."""
-    return {
-        "added": sum(1 for d in diffs if d.is_added),
-        "removed": sum(1 for d in diffs if d.is_removed),
-        "changed": sum(1 for d in diffs if d.is_changed),
-    }
+# Public alias used by snapshot_cmd and other modules
+unified_value_diff = _unified_value_diff
+
+
+def diff_summary(diffs: Dict[str, ValueDiff]) -> Tuple[int, int, int]:
+    """Return (added, removed, changed) counts."""
+    added = sum(1 for d in diffs.values() if d.is_added())
+    removed = sum(1 for d in diffs.values() if d.is_removed())
+    changed = sum(1 for d in diffs.values() if d.is_changed())
+    return added, removed, changed
