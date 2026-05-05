@@ -91,3 +91,18 @@ def test_ok_reflects_only_errors(tmp_env):
     result = lint_env_file(path)
     assert result.ok()
     assert result.has_warnings()
+
+
+def test_issue_line_numbers_are_reported(tmp_env):
+    """Each issue should carry the 1-based line number where it was found."""
+    path = tmp_env("""
+        GOOD=ok
+        BADLINE
+        ALSO_GOOD=yes
+    """)
+    result = lint_env_file(path)
+    bad_issues = [
+        i for i in result.issues if "not a valid" in i.message
+    ]
+    assert bad_issues, "Expected at least one 'not a valid' issue"
+    assert all(hasattr(i, "line") and i.line > 0 for i in bad_issues)
