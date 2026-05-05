@@ -74,3 +74,29 @@ def merge_conflicts(
             conflicts[key] = entries
 
     return conflicts
+
+
+def missing_keys(
+    envs: Dict[str, Dict[str, str]],
+) -> Dict[str, List[str]]:
+    """Return keys that are absent in at least one file.
+
+    Useful for detecting incomplete env files where a key defined in one
+    file is not present in another.
+
+    Args:
+        envs: Mapping of filename -> {key: value}.
+
+    Returns:
+        Mapping of filename -> list of keys missing from that file.
+        Files that contain all known keys are omitted from the result.
+    """
+    all_keys: set = set()
+    for env in envs.values():
+        all_keys.update(env.keys())
+
+    return {
+        fname: sorted(all_keys - env.keys())
+        for fname, env in envs.items()
+        if all_keys - env.keys()
+    }
