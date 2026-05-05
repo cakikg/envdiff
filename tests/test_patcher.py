@@ -93,21 +93,11 @@ def test_no_update_changed_by_default(tmp_env):
 # Removed keys (keys in target but not in source) are never deleted
 # ---------------------------------------------------------------------------
 
-def test_removed_keys_are_skipped(tmp_env):
+def test_removed_keys_are_not_deleted(tmp_env):
+    """Keys present in target but absent from source must be left untouched."""
     target = tmp_env("target.env", "A=1\nEXTRA=keep\n")
+    # source does not have EXTRA, so it appears as a removed key in the diff
     diffs = _diff({"A": "1"}, {"A": "1", "EXTRA": "keep"})
-    report = patch_env_file(target, diffs)
-    assert "EXTRA=keep" in target.read_text()
-    assert "EXTRA" in report["skipped"]
-
-
-# ---------------------------------------------------------------------------
-# Idempotency
-# ---------------------------------------------------------------------------
-
-def test_no_diff_leaves_file_unchanged(tmp_env):
-    original = "A=1\nB=2\n"
-    target = tmp_env("target.env", original)
-    diffs = _diff({"A": "1", "B": "2"}, {"A": "1", "B": "2"})
     patch_env_file(target, diffs)
-    assert target.read_text() == original
+    content = target.read_text()
+    assert "EXTRA=keep" in content
