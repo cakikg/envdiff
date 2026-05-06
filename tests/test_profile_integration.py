@@ -69,3 +69,13 @@ def test_extra_sensitive_pattern_via_cmd(env_file, capsys):
     assert rc == 0
     data = json.loads(capsys.readouterr().out)
     assert "APP_NAME" in data["sensitive_keys"]
+
+
+def test_run_profile_returns_nonzero_for_missing_file(capsys):
+    """run_profile should return a non-zero exit code when the file does not exist."""
+    rc = run_profile(Namespace(
+        file="/nonexistent/path/.env",
+        format="json",
+        sensitive_pattern=[],
+    ))
+    assert rc != 0
